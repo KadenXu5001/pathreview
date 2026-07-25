@@ -46,6 +46,8 @@ I picked this issue since I know about caching and wanted more practice in RAG p
 I would say that I am used to large codebases so this isn't that much of a concern for me, so I thought that
 tier 2 would be fitting for me.
 
+## Week 8 — Reproduction & solution planning
+
 **Reproduction commit link:** https://github.com/KadenXu5001/pathreview/commit/077df9a284e8e7483ea4e3660c73e26298042584
 
 **Reproduction summary:**
@@ -56,3 +58,18 @@ This wasn't really an issue but rather a new feature implementation. But what I 
 **Walkthrough video (recommended):** N/A
 
 **Blockers or open questions:**
+
+## Week 9 — Solution building & PR submission
+
+### Check-in 1 (mid-week)
+
+**Current progress:**
+Implemented the Redis-backed review cache from PLAN.md. Cache keys are isolated by user and derived from normalized portfolio content. Identical submissions reuse cached RAG output, while changed resume content creates a cache miss. Redis failures fall back to normal generation.
+
+**Next steps:**
+Open a draft PR, request peer or mentor feedback, address accepted feedback, and complete final testing and submission documentation.
+
+**Blockers:**
+The repository has pre-existing failures in its full unit and repository-wide lint suites. The cache-focused tests and checks for all changed files pass.
+
+---
