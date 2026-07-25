@@ -83,7 +83,7 @@ class TestReviewService:
         mock_review.id = review_id
 
         # Setup mock execute to return review
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.first.return_value = mock_review
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
@@ -99,7 +99,7 @@ class TestReviewService:
         wrong_user_id = uuid4()
 
         # Setup mock to return None
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.first.return_value = None
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
@@ -116,7 +116,7 @@ class TestReviewService:
         mock_reviews = [Mock() for _ in range(5)]
 
         # Setup execute mock to return reviews
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.all.return_value = mock_reviews
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
@@ -135,7 +135,7 @@ class TestReviewService:
         page_size = 20
 
         # Setup mock
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.all.return_value = []
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
@@ -151,7 +151,7 @@ class TestReviewService:
         """Test list_reviews returns (reviews, total) tuple."""
         user_id = uuid4()
 
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.all.return_value = []
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
@@ -202,7 +202,7 @@ class TestReviewService:
         review_id = uuid4()
         user_id = uuid4()
 
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.first.return_value = None
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
@@ -216,7 +216,7 @@ class TestReviewService:
         """Test list_reviews uses default pagination."""
         user_id = uuid4()
 
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.all.return_value = []
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
@@ -232,7 +232,7 @@ class TestReviewService:
         user_id = uuid4()
         custom_page_size = 50
 
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.all.return_value = []
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
@@ -262,7 +262,7 @@ class TestReviewService:
         review_id = uuid4()
         user_id = uuid4()
 
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.first.return_value = None
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
@@ -277,7 +277,7 @@ class TestReviewService:
         user_id = uuid4()
 
         mock_reviews = [Mock() for _ in range(5)]
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.all.return_value = mock_reviews
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
@@ -292,7 +292,7 @@ class TestReviewService:
         user_id = uuid4()
 
         mock_reviews = [Mock(spec=["id", "status"]) for _ in range(3)]
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.all.return_value = mock_reviews
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
@@ -322,7 +322,7 @@ class TestReviewService:
         review_id = uuid4()
         user_id = uuid4()
 
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.first.return_value = None
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
@@ -336,14 +336,16 @@ class TestReviewService:
         """Test list_reviews returns results ordered by created_at desc."""
         user_id = uuid4()
 
-        mock_result = AsyncMock()
+        mock_result = Mock()
         mock_result.scalars.return_value.all.return_value = []
         mock_db_session.execute = AsyncMock(return_value=mock_result)
 
         reviews, total = await list_reviews(mock_db_session, user_id)
 
         # Should order by created_at descending
-        mock_db_session.execute.assert_called_once()
+        assert mock_db_session.execute.await_count == 2
+        reviews_statement = mock_db_session.execute.await_args_list[1].args[0]
+        assert "ORDER BY reviews.created_at DESC" in str(reviews_statement)
 
     @pytest.mark.asyncio
     async def test_identical_portfolio_content_reuses_cached_rag_result(
@@ -402,7 +404,7 @@ class TestReviewService:
             patch(
                 "core.services.review_service._run_agent_orchestration",
                 new=AsyncMock(return_value={"sections": []}),
-            ),
+            ) as run_agent,
             patch(
                 "core.services.review_service._run_rag_retrieval_generation",
                 new=AsyncMock(return_value=rag_output),
@@ -411,6 +413,14 @@ class TestReviewService:
                 "core.services.review_service._run_safety_checks",
                 new=AsyncMock(return_value=True),
             ),
+            patch(
+                "core.services.review_service.review_cache.get",
+                new=AsyncMock(side_effect=[None, rag_output]),
+            ) as cache_get,
+            patch(
+                "core.services.review_service.review_cache.set",
+                new=AsyncMock(),
+            ) as cache_set,
         ):
             await process_review(mock_db_session, first_review.id, first_profile.id)
             await process_review(mock_db_session, second_review.id, second_profile.id)
@@ -418,3 +428,69 @@ class TestReviewService:
         assert (
             run_rag.await_count == 1
         ), "Identical portfolio content for the same user should reuse the cached RAG result"
+        assert run_agent.await_count == 1
+        assert cache_get.await_count == 2
+        cache_set.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_safety_rejected_output_is_not_cached(self, mock_db_session: AsyncMock) -> None:
+        """A generated result must pass safety checks before cache storage."""
+        profile = Mock(
+            id=uuid4(),
+            user_id=uuid4(),
+            github_username="octocat",
+            portfolio_url=None,
+            resume_filename="resume.md",
+            resume_text="resume content",
+        )
+        review = Mock(id=uuid4(), status="pending")
+
+        query_results = []
+        for entity in (review, profile):
+            result = Mock()
+            result.scalars.return_value.first.return_value = entity
+            query_results.append(result)
+        mock_db_session.execute.side_effect = query_results
+
+        rag_output = {
+            "sections": [
+                {
+                    "section_name": "Technical Skills",
+                    "content": "Unsafe feedback",
+                    "confidence": 0.9,
+                    "suggestions": [],
+                }
+            ],
+            "overall_score": 0.9,
+        }
+
+        with (
+            patch(
+                "core.services.review_service._run_ingestion_pipeline",
+                new=AsyncMock(return_value=[{"source_type": "resume", "data": "resume content"}]),
+            ),
+            patch(
+                "core.services.review_service._run_agent_orchestration",
+                new=AsyncMock(return_value={"sections": []}),
+            ),
+            patch(
+                "core.services.review_service._run_rag_retrieval_generation",
+                new=AsyncMock(return_value=rag_output),
+            ),
+            patch(
+                "core.services.review_service._run_safety_checks",
+                new=AsyncMock(return_value=False),
+            ),
+            patch(
+                "core.services.review_service.review_cache.get",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "core.services.review_service.review_cache.set",
+                new=AsyncMock(),
+            ) as cache_set,
+        ):
+            await process_review(mock_db_session, review.id, profile.id)
+
+        cache_set.assert_not_awaited()
+        assert review.status == "failed"

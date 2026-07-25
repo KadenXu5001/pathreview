@@ -45,3 +45,14 @@ Some issues say "blocked by #X" or reference another issue that needs to be reso
 I picked this issue since I know about caching and wanted more practice in RAG pipelines.
 I would say that I am used to large codebases so this isn't that much of a concern for me, so I thought that
 tier 2 would be fitting for me.
+
+**Reproduction commit link:** https://github.com/KadenXu5001/pathreview/commit/077df9a284e8e7483ea4e3660c73e26298042584
+
+**Reproduction summary:**
+This wasn't really an issue but rather a new feature implementation. But what I did was to make a unit test that fails if when given the same 2 portfolios, it fails if the run command happens twice.
+
+**PLAN.md link:** [Link text](PLAN.md)
+
+**Walkthrough video (recommended):** N/A
+
+**Blockers or open questions:**
