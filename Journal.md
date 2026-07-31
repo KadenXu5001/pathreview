@@ -73,3 +73,21 @@ Open a draft PR, request peer or mentor feedback, address accepted feedback, and
 The repository has pre-existing failures in its full unit and repository-wide lint suites. The cache-focused tests and checks for all changed files pass.
 
 ---
+
+### Check-in 2 (end of week)
+
+**PR link:** https://github.com/ascherj/pathreview/pull/287
+
+**Branch:** `fix/32-query-caching`
+
+**What you built:**
+Implemented a Redis-backed caching layer for repeated portfolio reviews. The cache uses user-scoped, deterministic content hashes to reuse successful RAG output while treating Redis failures or invalid cached data as cache misses.
+
+**Tests added or updated:**
+Added `tests/unit/test_review_cache.py` and updated `tests/unit/test_review_service.py`. The tests cover deterministic hashing, user isolation, content changes, TTL behavior, cache hits, malformed data, Redis failures, and ensuring safety-rejected results are not cached.
+
+**Self-review confirmation:** [x] make check passes  [x] make test-unit passes
+
+The repository has documented pre-existing failures in the full check and unit-test suites. Under the course's pre-existing-failure policy, the cache-focused tests and Ruff, Black, and Mypy checks for every changed file pass, and these changes introduce no new failures.
+
+**Draft PR feedback received from:** Christopher Castro
