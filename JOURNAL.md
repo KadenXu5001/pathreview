@@ -86,7 +86,7 @@ Implemented a Redis-backed caching layer for repeated portfolio reviews. The cac
 **Tests added or updated:**
 Added `tests/unit/test_review_cache.py` and updated `tests/unit/test_review_service.py`. The tests cover deterministic hashing, user isolation, content changes, TTL behavior, cache hits, malformed data, Redis failures, and ensuring safety-rejected results are not cached.
 
-**Self-review confirmation:** [x] make check passes  [x] make test-unit passes
+**Self-review confirmation:** [x] make check passes [x] make test-unit passes
 
 The repository has documented pre-existing failures in the full check and unit-test suites. Under the course's pre-existing-failure policy, the cache-focused tests and Ruff, Black, and Mypy checks for every changed file pass, and these changes introduce no new failures.
 
@@ -96,7 +96,7 @@ The repository has documented pre-existing failures in the full check and unit-t
 
 ### Reviewer feedback
 
-**Feedback received:** [ ] Yes  [x] No — still awaiting review
+**Feedback received:** [ ] Yes [x] No — still awaiting review
 
 **Summary of feedback:**
 As of August 6, 2026, PR #287 has not received a formal review, maintainer
@@ -114,12 +114,10 @@ The hardest part was deciding what "identical" meant in a real ingestion
 pipeline. A cache key based on profile or review IDs would never be reusable,
 while a key based on filenames could return a stale result after the resume
 content changed. I had to identify transient fields, canonically serialize the
-actual ingested content, and hash it while still scoping the key to one user.
+actual ingested content, and hash it while still scoping the key to one user. so
 Integrating the cache was also more delicate than simply wrapping the RAG call:
 cached output still needed to pass the existing safety checks, and a Redis
-failure could not be allowed to fail the review itself. Finally, distinguishing
-failures caused by my changes from pre-existing failures in the full test and
-lint suites took more time than I expected.
+failure could not be allowed to fail the review itself.
 
 **What did you learn about working in a large codebase?**
 I learned that the surrounding contracts matter as much as the feature code.
@@ -161,3 +159,5 @@ keys, prevents cache sharing across users, re-runs safety checks on cached data,
 rejects malformed entries, and falls back to normal generation when Redis is
 unavailable. The tests capture those guarantees, so the contribution improves
 performance without silently weakening privacy or reliability.
+
+Thank you guys for all the work in this free course btw!
