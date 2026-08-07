@@ -91,3 +91,73 @@ Added `tests/unit/test_review_cache.py` and updated `tests/unit/test_review_serv
 The repository has documented pre-existing failures in the full check and unit-test suites. Under the course's pre-existing-failure policy, the cache-focused tests and Ruff, Black, and Mypy checks for every changed file pass, and these changes introduce no new failures.
 
 **Draft PR feedback received from:** Christopher Castro
+
+## Week 10 — Iteration & reflection
+
+### Reviewer feedback
+
+**Feedback received:** [ ] Yes  [x] No — still awaiting review
+
+**Summary of feedback:**
+As of August 6, 2026, PR #287 has not received a formal review, maintainer
+comment, or inline review comment. The peer feedback recorded in Week 9 was part
+of the draft PR process rather than formal reviewer feedback.
+
+**How you responded:**
+
+---
+
+### Reflection
+
+**What was harder than you expected?**
+The hardest part was deciding what "identical" meant in a real ingestion
+pipeline. A cache key based on profile or review IDs would never be reusable,
+while a key based on filenames could return a stale result after the resume
+content changed. I had to identify transient fields, canonically serialize the
+actual ingested content, and hash it while still scoping the key to one user.
+Integrating the cache was also more delicate than simply wrapping the RAG call:
+cached output still needed to pass the existing safety checks, and a Redis
+failure could not be allowed to fail the review itself. Finally, distinguishing
+failures caused by my changes from pre-existing failures in the full test and
+lint suites took more time than I expected.
+
+**What did you learn about working in a large codebase?**
+I learned that the surrounding contracts matter as much as the feature code.
+Before implementing anything, I had to trace `process_review()` through
+ingestion, agent orchestration, RAG generation, safety validation, and database
+persistence. I also had to notice that Redis and its configuration already
+existed instead of introducing a second caching dependency. In someone else's
+production code, a locally correct shortcut can still violate privacy, status
+transitions, logging conventions, or failure behavior. The safest approach was
+to keep the API unchanged, place the cache at one narrow point in the service,
+and add tests for user isolation, invalid data, TTL use, and unavailable Redis.
+
+**How did AI tools help — and where did they fall short?**
+AI tools were most useful for quickly mapping unfamiliar modules, turning the
+issue into an implementation plan, and suggesting edge cases such as malformed
+cached JSON, source ordering, user isolation, and safety-rejected output. They
+also helped draft focused tests and interpret failures. However, AI could not
+decide product questions that the repository did not answer, such as the ideal
+TTL or whether concurrent identical requests required a distributed lock. I
+still had to inspect the actual control flow, verify every suggestion against
+the repository's types and conventions, and determine which suite failures were
+already present. AI accelerated the investigation, but it did not replace
+repository knowledge or engineering judgment.
+
+**What would you do differently if you started over?**
+I would run and record the complete baseline test, lint, formatting, and type
+check results before changing code. That would make pre-existing failures easier
+to separate from regressions later. I would also ask the maintainer about cache
+TTL, invalidation policy, and concurrent requests during issue selection rather
+than carrying those as open assumptions. During implementation, I would keep
+the first commit more narrowly focused on the failing reproduction test and
+avoid touching unrelated mocks until I knew exactly which changes were required
+for the cache tests.
+
+**What are you most proud of from this module?**
+I am most proud that the caching feature is defensive instead of only working on
+the happy path. The implementation avoids putting raw portfolio content in Redis
+keys, prevents cache sharing across users, re-runs safety checks on cached data,
+rejects malformed entries, and falls back to normal generation when Redis is
+unavailable. The tests capture those guarantees, so the contribution improves
+performance without silently weakening privacy or reliability.
